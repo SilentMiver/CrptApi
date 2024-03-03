@@ -4,8 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squareup.okhttp.*;
 
 import java.io.IOException;
-import java.net.http.HttpClient;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -17,7 +15,6 @@ public class CrptApi {
     public static final String API_LINK = "https://ismp.crpt.ru/api/v3/lk/documents/create";
     private final OkHttpClient httpClient = new OkHttpClient();
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
-
     private final AtomicInteger requestCounter = new AtomicInteger(0);
     private final Semaphore semaphore;
     private final int request_limit;
@@ -26,19 +23,19 @@ public class CrptApi {
     public CrptApi(TimeUnit timeUnit, int request_limit) {
         this.request_limit = request_limit;
         this.semaphore = new Semaphore(request_limit);
-
+        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+        scheduler.scheduleAtFixedRate(this::resetCounter, 0, timeUnit.toSeconds(1), TimeUnit.SECONDS);
 
     }
 
 
     public void createDocument(Document document, String signature) throws IOException, InterruptedException {
-        while (true){
-        if (requestCounter.get() > request_limit) {
-            System.out.println("Reached request limit."+requestCounter.get() + " Waiting for next period." + Thread.currentThread().getName());
-            Thread.sleep(1000);
+        while (true) {
+            if (requestCounter.get() > request_limit) {
+                Thread.sleep(1000);
 
-           continue;
-        }
+                continue;
+            }
             break;
         }
         requestCounter.incrementAndGet();
@@ -46,30 +43,28 @@ public class CrptApi {
 
 
         try {
-            System.out.println("Я занял. ждем 1000 миллисекунд");
-//            String json = objectMapper.writeValueAsString(document);
-//            RequestBody requestBody = RequestBody.create(JSON, json);
-//            Request request = new Request.Builder()
-//                    .url(API_LINK)
-//                    .post(requestBody)
-//                    .addHeader("Signature", signature)
-//                    .build();
-//            Response response = httpClient.newCall(request).execute();
-//            if (!response.isSuccessful()) {
-//                throw new IOException("Unexpected response code: " + response);
-//            }
-//            // Handle response here if needed
-//            System.out.println("Document created successfully");
-            Thread.sleep(10000);
-
-
+            String json = objectMapper.writeValueAsString(document);
+            RequestBody requestBody = RequestBody.create(JSON, json);
+            Request request = new Request.Builder()
+                    .url(API_LINK)
+                    .post(requestBody)
+                    .addHeader("Signature", signature)
+                    .build();
+            Response response = httpClient.newCall(request).execute();
+            if (!response.isSuccessful()) {
+                throw new IOException("Unexpected response code: " + response);
+            }
+            // Handle response here if needed
+            System.out.println("Document created successfully");
 
 
         } finally {
-            System.out.println("vse" + Thread.currentThread().getName());
             semaphore.release();
             requestCounter.decrementAndGet();
         }
+    }
+    private void resetCounter() {
+        requestCounter.set(0);
     }
 
     public static class Document {
@@ -90,8 +85,7 @@ public class CrptApi {
         public Document(Description description, String doc_id, String doc_status, String doc_type,
                         boolean importRequest, String owner_inn, String participant_inn, String producer_inn,
                         String production_date, String production_type, ArrayList<Product> products, String reg_date,
-                        String reg_number)
-        {
+                        String reg_number) {
             this.description = description;
             this.doc_id = doc_id;
             this.doc_status = doc_status;
@@ -106,6 +100,7 @@ public class CrptApi {
             this.reg_date = reg_date;
             this.reg_number = reg_number;
         }
+
         // Значения из файла ТЗ
         public static Document createTemplate() {
             Description description = new Description();
