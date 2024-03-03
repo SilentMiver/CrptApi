@@ -7,6 +7,8 @@ import java.io.IOException;
 import java.net.http.HttpClient;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -15,16 +17,28 @@ public class CrptApi {
     public static final String API_LINK = "https://ismp.crpt.ru/api/v3/lk/documents/create";
     private final OkHttpClient httpClient = new OkHttpClient();
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    private final AtomicInteger requestCounter = new AtomicInteger(0);
     private final Semaphore semaphore;
+    private final int request_limit;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public CrptApi(TimeUnit timeUnit, int request_limit) {
+        this.request_limit = request_limit;
         this.semaphore = new Semaphore(request_limit);
+        scheduler.scheduleAtFixedRate(this::resetRequestCounter, 0, timeUnit.toSeconds(1), TimeUnit.SECONDS);
 
-
+    }
+    private void resetRequestCounter() {
+        System.out.println("0");
+        requestCounter.set(0);
     }
 
     public void createDocument(Document document, String signature) throws IOException, InterruptedException {
+        if (requestCounter.incrementAndGet() > request_limit) {
+            System.out.println("Reached request limit. Waiting for next period." + Thread.currentThread().getName());
+            return;
+        }
         semaphore.acquire();
         try {
             System.out.println("Я занял. ждем 1000 миллисекунд");
@@ -41,10 +55,12 @@ public class CrptApi {
 //            }
 //            // Handle response here if needed
 //            System.out.println("Document created successfully");
-            Thread.sleep(10000);
-            System.out.println("Следующий");
+
+
+
 
         } finally {
+            System.out.println("vse" + Thread.currentThread().getName());
             semaphore.release();
         }
     }
