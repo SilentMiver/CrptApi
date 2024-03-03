@@ -17,7 +17,7 @@ public class CrptApi {
     public static final String API_LINK = "https://ismp.crpt.ru/api/v3/lk/documents/create";
     private final OkHttpClient httpClient = new OkHttpClient();
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
-    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+
     private final AtomicInteger requestCounter = new AtomicInteger(0);
     private final Semaphore semaphore;
     private final int request_limit;
@@ -26,20 +26,25 @@ public class CrptApi {
     public CrptApi(TimeUnit timeUnit, int request_limit) {
         this.request_limit = request_limit;
         this.semaphore = new Semaphore(request_limit);
-        scheduler.scheduleAtFixedRate(this::resetRequestCounter, 0, timeUnit.toSeconds(1), TimeUnit.SECONDS);
+
 
     }
-    private void resetRequestCounter() {
-        System.out.println("0");
-        requestCounter.set(0);
-    }
+
 
     public void createDocument(Document document, String signature) throws IOException, InterruptedException {
-        if (requestCounter.incrementAndGet() > request_limit) {
-            System.out.println("Reached request limit. Waiting for next period." + Thread.currentThread().getName());
-            return;
+        while (true){
+        if (requestCounter.get() > request_limit) {
+            System.out.println("Reached request limit."+requestCounter.get() + " Waiting for next period." + Thread.currentThread().getName());
+            Thread.sleep(1000);
+
+           continue;
         }
+            break;
+        }
+        requestCounter.incrementAndGet();
         semaphore.acquire();
+
+
         try {
             System.out.println("Я занял. ждем 1000 миллисекунд");
 //            String json = objectMapper.writeValueAsString(document);
@@ -55,6 +60,7 @@ public class CrptApi {
 //            }
 //            // Handle response here if needed
 //            System.out.println("Document created successfully");
+            Thread.sleep(10000);
 
 
 
@@ -62,6 +68,7 @@ public class CrptApi {
         } finally {
             System.out.println("vse" + Thread.currentThread().getName());
             semaphore.release();
+            requestCounter.decrementAndGet();
         }
     }
 

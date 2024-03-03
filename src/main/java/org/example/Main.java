@@ -13,7 +13,7 @@ public class Main {
 //        ObjectMapper objectMapper = new ObjectMapper();
 //        String json = objectMapper.writeValueAsString(document);
 //        System.out.println(json);
-        CrptApi crptApi = new CrptApi(TimeUnit.SECONDS,1);
+        CrptApi crptApi = new CrptApi(TimeUnit.MINUTES,1);
 //        crptApi.createDocument(CrptApi.Document.createTemplate(),"new");
         new Thread(() -> {
             try {
